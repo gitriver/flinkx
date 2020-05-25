@@ -19,11 +19,13 @@
 package com.dtstack.flinkx.stream.writer;
 
 import com.dtstack.flinkx.exception.WriteRecordException;
-import com.dtstack.flinkx.outputformat.RichOutputFormat;
+import com.dtstack.flinkx.outputformat.BaseRichOutputFormat;
+import com.dtstack.flinkx.reader.MetaColumn;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.StringUtils;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * OutputFormat for stream writer
@@ -31,10 +33,12 @@ import java.io.IOException;
  * @author jiangbo
  * @Company: www.dtstack.com
  */
-public class StreamOutputFormat extends RichOutputFormat {
+public class StreamOutputFormat extends BaseRichOutputFormat {
 
     protected boolean print;
     protected String writeDelimiter;
+
+    protected List<MetaColumn> metaColumns;
 
     @Override
     protected void openInternal(int taskNumber, int numTasks) throws IOException {
@@ -44,11 +48,7 @@ public class StreamOutputFormat extends RichOutputFormat {
     @Override
     protected void writeSingleRecordInternal(Row row) throws WriteRecordException {
         if (print) {
-            System.out.println(String.format("subTaskIndex[%s]:%s", taskNumber, rowToStringWithDelimiter(row, writeDelimiter)));
-        }
-
-        if (restoreConfig.isRestore()) {
-            formatState.setState(row.getField(restoreConfig.getRestoreColumnIndex()));
+            LOG.info("subTaskIndex[{}]:{}", taskNumber, row);
         }
     }
 
@@ -56,25 +56,8 @@ public class StreamOutputFormat extends RichOutputFormat {
     protected void writeMultipleRecordsInternal() throws Exception {
         if (print) {
             for (Row row : rows) {
-                System.out.println("printInfo: " + rowToStringWithDelimiter(row, writeDelimiter));
+                LOG.info(String.valueOf(row));
             }
-            System.out.println("batch size: " + rows.size());
         }
-
-        if (restoreConfig.isRestore()) {
-            Row row = rows.get(rows.size() - 1);
-            formatState.setState(row.getField(restoreConfig.getRestoreColumnIndex()));
-        }
-    }
-
-    public String rowToStringWithDelimiter(Row row, String writeDelimiter) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < row.getArity(); i++) {
-            if (i > 0) {
-                sb.append(writeDelimiter);
-            }
-            sb.append(StringUtils.arrayAwareToString(row.getField(i)));
-        }
-        return sb.toString();
     }
 }

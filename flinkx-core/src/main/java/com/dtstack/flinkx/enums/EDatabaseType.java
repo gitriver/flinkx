@@ -26,6 +26,9 @@ package com.dtstack.flinkx.enums;
  */
 public enum EDatabaseType {
 
+    /**
+     * database type
+     */
     MySQL,
     SQLServer,
     Oracle,
@@ -34,10 +37,20 @@ public enum EDatabaseType {
     MongoDB,
     Redis,
     ES,
+    SapHana,
+    TeraData,
+
+    /**
+     * contains ftp and sftp
+     */
     FTP,
     Hbase,
     ODPS,
     STREAM,
     Carbondata,
-    GBase
+    GBase,
+    clickhouse,
+    polarDB,
+    Phoenix,
+    dm
 }

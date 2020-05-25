@@ -20,12 +20,12 @@ package com.dtstack.flinkx.postgresql.format;
 import com.dtstack.flinkx.enums.EWriteMode;
 import com.dtstack.flinkx.exception.WriteRecordException;
 import com.dtstack.flinkx.rdb.outputformat.JdbcOutputFormat;
-import com.google.common.base.Strings;
 import org.apache.flink.types.Row;
 import org.postgresql.copy.CopyManager;
 import org.postgresql.core.BaseConnection;
 
 import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
@@ -71,9 +71,26 @@ public class PostgresqlOutputFormat extends JdbcOutputFormat {
     }
 
     @Override
+    protected void openInternal(int taskNumber, int numTasks){
+        super.openInternal(taskNumber, numTasks);
+        try {
+            if (batchInterval > 1) {
+                dbConn.setAutoCommit(false);
+            }
+        } catch (Exception e) {
+            LOG.warn("", e);
+        }
+    }
+
+    @Override
     protected void writeSingleRecordInternal(Row row) throws WriteRecordException {
         if(!checkIsCopyMode(insertSqlMode)){
-            super.writeSingleRecordInternal(row);
+            if (batchInterval == 1) {
+                super.writeSingleRecordInternal(row);
+            } else {
+                writeSingleRecordCommit(row);
+            }
+
             return;
         }
 
@@ -88,17 +105,38 @@ public class PostgresqlOutputFormat extends JdbcOutputFormat {
             }
 
             String rowVal = sb.toString();
-            ByteArrayInputStream bi = new ByteArrayInputStream(rowVal.getBytes());
+            ByteArrayInputStream bi = new ByteArrayInputStream(rowVal.getBytes(StandardCharsets.UTF_8));
             copyManager.copyIn(copySql, bi);
         } catch (Exception e) {
             processWriteException(e, index, row);
         }
     }
 
+    private void writeSingleRecordCommit(Row row) throws WriteRecordException {
+        try {
+            super.writeSingleRecordInternal(row);
+            try {
+                dbConn.commit();
+            } catch (Exception e) {
+                // 提交失败直接结束任务
+                throw new RuntimeException(e);
+            }
+        } catch (WriteRecordException e) {
+            try {
+                dbConn.rollback();
+            } catch (Exception e1) {
+                // 回滚失败直接结束任务
+                throw new RuntimeException(e);
+            }
+
+            throw e;
+        }
+    }
+
     @Override
     protected void writeMultipleRecordsInternal() throws Exception {
         if(!checkIsCopyMode(insertSqlMode)){
-            super.writeMultipleRecordsInternal();
+            writeMultipleRecordsCommit();
             return;
         }
 
@@ -117,11 +155,21 @@ public class PostgresqlOutputFormat extends JdbcOutputFormat {
         }
 
         String rowVal = sb.toString();
-        ByteArrayInputStream bi = new ByteArrayInputStream(rowVal.getBytes());
+        ByteArrayInputStream bi = new ByteArrayInputStream(rowVal.getBytes(StandardCharsets.UTF_8));
         copyManager.copyIn(copySql, bi);
 
         if(restoreConfig.isRestore()){
             rowsOfCurrentTransaction += rows.size();
+        }
+    }
+
+    private void writeMultipleRecordsCommit() throws Exception {
+        try {
+            super.writeMultipleRecordsInternal();
+            dbConn.commit();
+        } catch (Exception e){
+            dbConn.rollback();
+            throw e;
         }
     }
 
@@ -135,7 +183,7 @@ public class PostgresqlOutputFormat extends JdbcOutputFormat {
     }
 
     private boolean checkIsCopyMode(String insertMode){
-        if(Strings.isNullOrEmpty(insertMode)){
+        if(insertMode == null || insertMode.length() == 0){
             return false;
         }
 

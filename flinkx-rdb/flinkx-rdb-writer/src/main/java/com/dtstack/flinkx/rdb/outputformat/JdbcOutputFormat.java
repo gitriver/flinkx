@@ -20,13 +20,14 @@ package com.dtstack.flinkx.rdb.outputformat;
 import com.dtstack.flinkx.enums.ColumnType;
 import com.dtstack.flinkx.enums.EWriteMode;
 import com.dtstack.flinkx.exception.WriteRecordException;
-import com.dtstack.flinkx.outputformat.RichOutputFormat;
+import com.dtstack.flinkx.outputformat.BaseRichOutputFormat;
 import com.dtstack.flinkx.rdb.DatabaseInterface;
 import com.dtstack.flinkx.rdb.type.TypeConverterInterface;
-import com.dtstack.flinkx.rdb.util.DBUtil;
+import com.dtstack.flinkx.rdb.util.DbUtil;
 import com.dtstack.flinkx.restore.FormatState;
 import com.dtstack.flinkx.util.ClassUtil;
 import com.dtstack.flinkx.util.DateUtil;
+import com.google.gson.Gson;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.ObjectUtils;
 import org.apache.flink.types.Row;
@@ -45,9 +46,9 @@ import java.util.Map;
  * Company: www.dtstack.com
  * @author huyifan.zju@163.com
  */
-public class JdbcOutputFormat extends RichOutputFormat {
+public class JdbcOutputFormat extends BaseRichOutputFormat {
 
-    private static final Logger LOG = LoggerFactory.getLogger(JdbcOutputFormat.class);
+    protected static final Logger LOG = LoggerFactory.getLogger(JdbcOutputFormat.class);
 
     protected static final long serialVersionUID = 1L;
 
@@ -57,7 +58,7 @@ public class JdbcOutputFormat extends RichOutputFormat {
 
     protected String driverName;
 
-    protected String dbURL;
+    protected String dbUrl;
 
     protected Connection dbConn;
 
@@ -88,13 +89,13 @@ public class JdbcOutputFormat extends RichOutputFormat {
 
     protected TypeConverterInterface typeConverter;
 
-    private Row lastRow = null;
+    protected Row lastRow = null;
 
-    private boolean readyCheckpoint;
+    protected boolean readyCheckpoint;
 
     protected long rowsOfCurrentTransaction;
 
-    protected final static String GET_ORACLE_INDEX_SQL = "SELECT " +
+    protected final static String GET_INDEX_SQL = "SELECT " +
             "t.INDEX_NAME," +
             "t.COLUMN_NAME " +
             "FROM " +
@@ -132,7 +133,7 @@ public class JdbcOutputFormat extends RichOutputFormat {
     protected void openInternal(int taskNumber, int numTasks){
         try {
             ClassUtil.forName(driverName, getClass().getClassLoader());
-            dbConn = DBUtil.getConnection(dbURL, username, password);
+            dbConn = DbUtil.getConnection(dbUrl, username, password);
 
             if (restoreConfig.isRestore()){
                 dbConn.setAutoCommit(false);
@@ -170,13 +171,13 @@ public class JdbcOutputFormat extends RichOutputFormat {
         }
     }
 
-    private List<String> analyzeTable() {
+    protected List<String> analyzeTable() {
         List<String> ret = new ArrayList<>();
         Statement stmt = null;
         ResultSet rs = null;
         try {
             stmt = dbConn.createStatement();
-            rs = stmt.executeQuery(databaseInterface.getSQLQueryFields(databaseInterface.quoteTable(table)));
+            rs = stmt.executeQuery(databaseInterface.getSqlQueryFields(databaseInterface.quoteTable(table)));
             ResultSetMetaData rd = rs.getMetaData();
             for(int i = 0; i < rd.getColumnCount(); ++i) {
                 ret.add(rd.getColumnTypeName(i+1));
@@ -190,7 +191,7 @@ public class JdbcOutputFormat extends RichOutputFormat {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         } finally {
-            DBUtil.closeDBResources(rs, stmt,null, false);
+            DbUtil.closeDbResources(rs, stmt,null, false);
         }
 
         return ret;
@@ -276,11 +277,16 @@ public class JdbcOutputFormat extends RichOutputFormat {
             if (readyCheckpoint || rowsOfCurrentTransaction > restoreConfig.getMaxRowNumForCheckpoint()){
 
                 LOG.info("getFormatState:Start commit connection");
-                preparedStatement.executeBatch();
+                if(rows != null && rows.size() > 0){
+                    super.writeRecordInternal();
+                }else{
+                    preparedStatement.executeBatch();
+                }
                 dbConn.commit();
                 LOG.info("getFormatState:Commit connection success");
 
                 snapshotWriteCounter.add(rowsOfCurrentTransaction);
+                numWriteCounter.add(rowsOfCurrentTransaction);
                 rowsOfCurrentTransaction = 0;
 
                 formatState.setState(lastRow.getField(restoreConfig.getRestoreColumnIndex()));
@@ -331,7 +337,7 @@ public class JdbcOutputFormat extends RichOutputFormat {
     }
 
     protected Map<String, List<String>> probePrimaryKeys(String table, Connection dbConn) throws SQLException {
-        Map<String, List<String>> map = new HashMap<>();
+        Map<String, List<String>> map = new HashMap<>(16);
         ResultSet rs = dbConn.getMetaData().getIndexInfo(null, null, table, true, false);
         while(rs.next()) {
             String indexName = rs.getString("INDEX_NAME");
@@ -340,7 +346,7 @@ public class JdbcOutputFormat extends RichOutputFormat {
             }
             map.get(indexName).add(rs.getString("COLUMN_NAME"));
         }
-        Map<String,List<String>> retMap = new HashMap<>();
+        Map<String,List<String>> retMap = new HashMap<>((map.size()<<2)/3);
         for(Map.Entry<String,List<String>> entry: map.entrySet()) {
             String k = entry.getKey();
             List<String> v = entry.getValue();
@@ -356,6 +362,7 @@ public class JdbcOutputFormat extends RichOutputFormat {
         readyCheckpoint = false;
         boolean commit = true;
         try{
+            numWriteCounter.add(rowsOfCurrentTransaction);
             String state = getTaskState();
             // Do not commit a transaction when the task is canceled or failed
             if(!RUNNING_STATE.equals(state) && restoreConfig.isRestore()){
@@ -365,7 +372,7 @@ public class JdbcOutputFormat extends RichOutputFormat {
             LOG.error("Get task status error:{}", e.getMessage());
         }
 
-        DBUtil.closeDBResources(null, preparedStatement, dbConn, commit);
+        DbUtil.closeDbResources(null, preparedStatement, dbConn, commit);
         dbConn = null;
     }
 
@@ -377,7 +384,8 @@ public class JdbcOutputFormat extends RichOutputFormat {
     @Override
     protected void beforeWriteRecords()  {
         if(taskNumber == 0) {
-            DBUtil.executeBatch(dbConn, preSql);
+            LOG.info("start to execute preSql, preSql = {}", new Gson().toJson(preSql));
+            DbUtil.executeBatch(dbConn, preSql);
         }
     }
 
@@ -390,7 +398,8 @@ public class JdbcOutputFormat extends RichOutputFormat {
     protected void beforeCloseInternal() {
         // 执行postsql
         if(taskNumber == 0) {
-            DBUtil.executeBatch(dbConn, postSql);
+            LOG.info("start to execute postSql, postSql = {}", new Gson().toJson(postSql));
+            DbUtil.executeBatch(dbConn, postSql);
         }
     }
 

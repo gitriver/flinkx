@@ -20,7 +20,9 @@ package com.dtstack.flinkx.oracle.reader;
 
 import com.dtstack.flinkx.config.DataTransferConfig;
 import com.dtstack.flinkx.oracle.OracleDatabaseMeta;
+import com.dtstack.flinkx.oracle.format.OracleInputFormat;
 import com.dtstack.flinkx.rdb.datareader.JdbcDataReader;
+import com.dtstack.flinkx.rdb.inputformat.JdbcInputFormatBuilder;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
 /**
@@ -36,4 +38,8 @@ public class OracleReader extends JdbcDataReader {
         setDatabaseInterface(new OracleDatabaseMeta());
     }
 
+    @Override
+    protected JdbcInputFormatBuilder getBuilder() {
+        return new JdbcInputFormatBuilder(new OracleInputFormat());
+    }
 }

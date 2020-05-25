@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -33,6 +33,8 @@ public class HdfsConfigKeys {
     public static final String KEY_PATH = "path";
 
     public static final String KEY_HADOOP_CONFIG = "hadoopConfig";
+
+    public static final String KEY_FILTER = "filterRegex";
 
     public static final String KEY_FILE_TYPE = "fileType";
 

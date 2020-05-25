@@ -18,24 +18,22 @@
 
 package com.dtstack.flinkx.rdb.datareader;
 
-import java.util.ArrayList;
-import java.util.List;
-
+import com.dtstack.flinkx.config.DataTransferConfig;
+import com.dtstack.flinkx.config.ReaderConfig;
+import com.dtstack.flinkx.inputformat.BaseRichInputFormat;
+import com.dtstack.flinkx.rdb.DataSource;
+import com.dtstack.flinkx.rdb.DatabaseInterface;
+import com.dtstack.flinkx.rdb.inputformat.DistributedJdbcInputFormatBuilder;
+import com.dtstack.flinkx.rdb.util.DbUtil;
+import com.dtstack.flinkx.reader.BaseDataReader;
+import com.dtstack.flinkx.reader.MetaColumn;
 import org.apache.commons.lang.StringUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.types.Row;
 
-import com.dtstack.flinkx.config.DataTransferConfig;
-import com.dtstack.flinkx.config.ReaderConfig;
-import com.dtstack.flinkx.inputformat.RichInputFormat;
-import com.dtstack.flinkx.rdb.DataSource;
-import com.dtstack.flinkx.rdb.DatabaseInterface;
-import com.dtstack.flinkx.rdb.inputformat.DistributedJdbcInputFormatBuilder;
-import com.dtstack.flinkx.rdb.type.TypeConverterInterface;
-import com.dtstack.flinkx.rdb.util.DBUtil;
-import com.dtstack.flinkx.reader.DataReader;
-import com.dtstack.flinkx.reader.MetaColumn;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * The Reader plugin for multiple databases that can be connected via JDBC.
@@ -43,11 +41,9 @@ import com.dtstack.flinkx.reader.MetaColumn;
  * @Company: www.dtstack.com
  * @author jiangbo
  */
-public class DistributedJdbcDataReader extends DataReader {
+public class DistributedJdbcDataReader extends BaseDataReader {
 
     protected DatabaseInterface databaseInterface;
-
-    protected TypeConverterInterface typeConverter;
 
     protected String username;
 
@@ -79,22 +75,20 @@ public class DistributedJdbcDataReader extends DataReader {
         metaColumns = MetaColumn.getMetaColumns(readerConfig.getParameter().getColumn());
         splitKey = readerConfig.getParameter().getStringVal(JdbcConfigKeys.KEY_SPLIK_KEY);
         connectionConfigs = readerConfig.getParameter().getConnection();
-        fetchSize = readerConfig.getParameter().getIntVal(JdbcConfigKeys.KEY_FETCH_SIZE, 0);
-        queryTimeOut = readerConfig.getParameter().getIntVal(JdbcConfigKeys.KEY_QUERY_TIME_OUT, 0);
+        fetchSize = readerConfig.getParameter().getIntVal(JdbcConfigKeys.KEY_FETCH_SIZE,0);
+        queryTimeOut = readerConfig.getParameter().getIntVal(JdbcConfigKeys.KEY_QUERY_TIME_OUT,0);
         pluginName = readerConfig.getName();
     }
 
     @Override
     public DataStream<Row> readData() {
-        DistributedJdbcInputFormatBuilder builder
-            = new DistributedJdbcInputFormatBuilder(databaseInterface.getDatabaseType().name());
+        DistributedJdbcInputFormatBuilder builder = getBuilder();
         builder.setDrivername(databaseInterface.getDriverClass());
         builder.setUsername(username);
         builder.setPassword(password);
         builder.setBytes(bytes);
         builder.setMonitorUrls(monitorUrls);
         builder.setDatabaseInterface(databaseInterface);
-        builder.setTypeConverter(typeConverter);
         builder.setMetaColumn(metaColumns);
         builder.setSourceList(buildConnections());
         builder.setNumPartitions(numPartitions);
@@ -102,19 +96,23 @@ public class DistributedJdbcDataReader extends DataReader {
         builder.setWhere(where);
         builder.setFetchSize(fetchSize == 0 ? databaseInterface.getFetchSize() : fetchSize);
         builder.setQueryTimeOut(queryTimeOut == 0 ? databaseInterface.getQueryTimeout() : queryTimeOut);
+        builder.setTestConfig(testConfig);
+        builder.setLogConfig(logConfig);
 
-        RichInputFormat format = builder.finish();
+        BaseRichInputFormat format =  builder.finish();
         return createInput(format, (databaseInterface.getDatabaseType() + DISTRIBUTED_TAG + "reader").toLowerCase());
     }
 
-    protected List<DataSource> buildConnections() {
+    protected DistributedJdbcInputFormatBuilder getBuilder(){
+        throw new RuntimeException("子类必须覆盖getBuilder方法");
+    }
+
+    protected List<DataSource> buildConnections(){
         List<DataSource> sourceList = new ArrayList<>(connectionConfigs.size());
         for (ReaderConfig.ParameterConfig.ConnectionConfig connectionConfig : connectionConfigs) {
-            String curUsername
-                = (StringUtils.isBlank(connectionConfig.getUsername())) ? username : connectionConfig.getUsername();
-            String curPassword
-                = (StringUtils.isBlank(connectionConfig.getPassword())) ? password : connectionConfig.getPassword();
-            String curJdbcUrl = DBUtil.formatJdbcUrl(connectionConfig.getJdbcUrl().get(0), null);
+            String curUsername = (StringUtils.isBlank(connectionConfig.getUsername())) ? username : connectionConfig.getUsername();
+            String curPassword = (StringUtils.isBlank(connectionConfig.getPassword())) ? password : connectionConfig.getPassword();
+            String curJdbcUrl = DbUtil.formatJdbcUrl(connectionConfig.getJdbcUrl().get(0), null);
             for (String table : connectionConfig.getTable()) {
                 DataSource source = new DataSource();
                 source.setTable(table);
