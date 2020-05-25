@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -18,6 +18,7 @@
 
 package com.dtstack.flinkx.hdfs.reader;
 
+import com.dtstack.flinkx.constants.ConstantValue;
 import com.dtstack.flinkx.enums.ColumnType;
 import com.dtstack.flinkx.hdfs.HdfsUtil;
 import com.dtstack.flinkx.reader.MetaColumn;
@@ -30,6 +31,7 @@ import org.apache.flink.types.Row;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.hadoop.ParquetReader;
 import org.apache.parquet.hadoop.example.GroupReadSupport;
@@ -53,13 +55,11 @@ import java.util.concurrent.TimeUnit;
  * Company: www.dtstack.com
  * @author jiangbo
  */
-public class HdfsParquetInputFormat extends HdfsInputFormat {
+public class HdfsParquetInputFormat extends BaseHdfsInputFormat {
 
     private transient Group currentLine;
 
     private transient ParquetReader<Group> currentFileReader;
-
-    private transient List<String> allFilePaths;
 
     private transient List<String> fullColNames;
 
@@ -74,27 +74,6 @@ public class HdfsParquetInputFormat extends HdfsInputFormat {
     private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
 
     private static final long NANOS_PER_MILLISECOND = TimeUnit.MILLISECONDS.toNanos(1);
-
-    private static final String EXCLUDE_FILE = "_SUCCESS";
-
-    @Override
-    protected void configureAnythingElse() {
-        FileSystem fs = null;
-        try {
-            fs = FileSystemUtil.getFileSystem(hadoopConfig, defaultFS, jobId, "reader");
-            allFilePaths = getAllPartitionPath(inputPath, fs);
-        } catch (Exception e){
-            throw new RuntimeException(e);
-        } finally {
-            if(fs != null){
-                try {
-                    fs.close();
-                } catch (IOException e) {
-                    throw new RuntimeException("Close FileSystem error after get all files", e);
-                }
-            }
-        }
-    }
 
     @Override
     protected void openInternal(InputSplit inputSplit) throws IOException {
@@ -121,8 +100,9 @@ public class HdfsParquetInputFormat extends HdfsInputFormat {
             }
 
             for (MetaColumn metaColumn : metaColumns) {
-                if(fullColNames.contains(metaColumn.getName().toUpperCase())){
-                    metaColumn.setIndex(fullColNames.indexOf(metaColumn.getName().toUpperCase()));
+                String name = metaColumn.getName().toUpperCase();
+                if(fullColNames.contains(name)){
+                    metaColumn.setIndex(fullColNames.indexOf(name));
                 } else {
                     metaColumn.setIndex(-1);
                 }
@@ -147,7 +127,7 @@ public class HdfsParquetInputFormat extends HdfsInputFormat {
 
     @Override
     protected Row nextRecordInternal(Row row) throws IOException {
-        if(metaColumns.size() == 1 && "*".equals(metaColumns.get(0).getName())){
+        if(metaColumns.size() == 1 && ConstantValue.STAR_SYMBOL.equals(metaColumns.get(0).getName())){
             row = new Row(fullColNames.size());
             for (int i = 0; i < fullColNames.size(); i++) {
                 Object val = getData(currentLine,fullColTypes.get(i),i);
@@ -160,12 +140,14 @@ public class HdfsParquetInputFormat extends HdfsInputFormat {
                 Object val = null;
 
                 if(metaColumn.getIndex() != -1){
-                    if(currentLine.getFieldRepetitionCount(metaColumn.getName()) > 0){
-                        val = getData(currentLine,metaColumn.getType(),metaColumn.getIndex());
-                    }
+                    if (metaColumn.getIndex() < currentLine.getType().getFieldCount()) {
+                        if(currentLine.getFieldRepetitionCount(metaColumn.getIndex()) > 0){
+                            val = getData(currentLine,metaColumn.getType(),metaColumn.getIndex());
+                        }
 
-                    if (val == null && metaColumn.getValue() != null){
-                        val = metaColumn.getValue();
+                        if (val == null && metaColumn.getValue() != null){
+                            val = metaColumn.getValue();
+                        }
                     }
                 } else if (metaColumn.getValue() != null){
                     val = metaColumn.getValue();
@@ -217,10 +199,10 @@ public class HdfsParquetInputFormat extends HdfsInputFormat {
                 case "decimal" : {
                     DecimalMetadata dm = ((PrimitiveType) colSchemaType).getDecimalMetadata();
                     String primitiveTypeName = currentLine.getType().getType(index).asPrimitiveType().getPrimitiveTypeName().name();
-                    if ("INT32".equals(primitiveTypeName)){
+                    if (ColumnType.INT32.name().equals(primitiveTypeName)){
                         int intVal = currentLine.getInteger(index,0);
-                        data = longToDecimalStr((long)intVal,dm.getScale());
-                    } else if("INT64".equals(primitiveTypeName)){
+                        data = longToDecimalStr(intVal,dm.getScale());
+                    } else if(ColumnType.INT64.name().equals(primitiveTypeName)){
                         long longVal = currentLine.getLong(index,0);
                         data = longToDecimalStr(longVal,dm.getScale());
                     } else {
@@ -231,7 +213,7 @@ public class HdfsParquetInputFormat extends HdfsInputFormat {
                 }
                 case "date" : {
                     String val = currentLine.getValueToString(index,0);
-                    data = new Timestamp(Integer.parseInt(val) * 60 * 60 * 24 * 1000L).toString().substring(0,10);
+                    data = new Timestamp(Integer.parseInt(val) * MILLIS_IN_DAY).toString().substring(0,10);
                     break;
                 }
                 default: data = currentLine.getValueToString(index,0);break;
@@ -244,8 +226,17 @@ public class HdfsParquetInputFormat extends HdfsInputFormat {
     }
 
     @Override
-    public HdfsParquetSplit[] createInputSplits(int minNumSplits) throws IOException {
-        if(allFilePaths != null && allFilePaths.size() > 0){
+    public HdfsParquetSplit[] createInputSplitsInternal(int minNumSplits) throws IOException {
+        List<String> allFilePaths;
+        HdfsPathFilter pathFilter = new HdfsPathFilter(filterRegex);
+
+        try (FileSystem fs = FileSystemUtil.getFileSystem(hadoopConfig, defaultFs)) {
+            allFilePaths = getAllPartitionPath(inputPath, fs, pathFilter);
+        } catch (Exception e) {
+            throw new IOException(e);
+        }
+
+        if(allFilePaths.size() > 0){
             HdfsParquetSplit[] splits = new HdfsParquetSplit[minNumSplits];
             for (int i = 0; i < minNumSplits; i++) {
                 splits[i] = new HdfsParquetSplit(i, new ArrayList<>());
@@ -291,22 +282,18 @@ public class HdfsParquetInputFormat extends HdfsInputFormat {
         return bg.toString();
     }
 
-    private static List<String> getAllPartitionPath(String tableLocation, FileSystem fs) throws IOException {
+    private static List<String> getAllPartitionPath(String tableLocation, FileSystem fs, PathFilter pathFilter) throws IOException {
         List<String> pathList = Lists.newArrayList();
         Path inputPath = new Path(tableLocation);
 
-        if(fs.isFile(inputPath) && !inputPath.getName().equals(EXCLUDE_FILE)){
+        if(fs.isFile(inputPath)){
             pathList.add(tableLocation);
             return pathList;
-        } else {
-            FileStatus[] fsStatus = fs.listStatus(inputPath, path -> !path.getName().startsWith("."));
-            for (FileStatus status : fsStatus) {
-                if(status.isDirectory()){
-                    pathList.addAll(getAllPartitionPath(status.getPath().toString(), fs));
-                } else if(!status.getPath().getName().equals(EXCLUDE_FILE)){
-                    pathList.add(status.getPath().toString());
-                }
-            }
+        }
+
+        FileStatus[] fsStatus = fs.listStatus(inputPath, pathFilter);
+        for (FileStatus status : fsStatus) {
+            pathList.addAll(getAllPartitionPath(status.getPath().toString(), fs, pathFilter));
         }
 
         return pathList;

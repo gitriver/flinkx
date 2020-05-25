@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -18,6 +18,7 @@
 
 package com.dtstack.flinkx.reader;
 
+import com.dtstack.flinkx.constants.ConstantValue;
 import com.dtstack.flinkx.util.DateUtil;
 import com.dtstack.flinkx.util.StringUtil;
 import org.apache.commons.lang.StringUtils;
@@ -95,7 +96,7 @@ public class MetaColumn implements Serializable {
         this.timeFormat = timeFormat;
     }
 
-    public static List<MetaColumn> getMetaColumns(List columns){
+    public static List<MetaColumn> getMetaColumns(List columns, boolean generateIndex){
         List<MetaColumn> metaColumns = new ArrayList<>();
         if(columns != null && columns.size() > 0) {
             if (columns.get(0) instanceof Map) {
@@ -112,7 +113,11 @@ public class MetaColumn implements Serializable {
                             mc.setIndex(doubleColIndex.intValue());
                         }
                     } else {
-                        mc.setIndex(i);
+                        if (generateIndex) {
+                            mc.setIndex(i);
+                        } else {
+                            mc.setIndex(-1);
+                        }
                     }
 
                     mc.setName(sm.get("name") != null ? String.valueOf(sm.get("name")) : null);
@@ -127,9 +132,9 @@ public class MetaColumn implements Serializable {
                     metaColumns.add(mc);
                 }
             } else if (columns.get(0) instanceof String) {
-                if(columns.size() == 1 && columns.get(0).equals("*")){
+                if(columns.size() == 1 && ConstantValue.STAR_SYMBOL.equals(columns.get(0))){
                     MetaColumn mc = new MetaColumn();
-                    mc.setName("*");
+                    mc.setName(ConstantValue.STAR_SYMBOL);
                     metaColumns.add(mc);
                 } else {
                     for (Object column : columns) {
@@ -144,6 +149,10 @@ public class MetaColumn implements Serializable {
         }
 
         return metaColumns;
+    }
+
+    public static List<MetaColumn> getMetaColumns(List columns){
+        return getMetaColumns(columns, true);
     }
 
     public static List<String> getColumnNames(List columns){

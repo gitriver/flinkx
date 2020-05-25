@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -75,7 +75,21 @@ public class TimePartitionFormat {
     }
 
     public enum PartitionEnum {
-        DAY, HOUR, MINUTE
+
+        /**
+         * 天分区
+         */
+        DAY,
+
+        /**
+         * 小时分区
+         */
+        HOUR,
+
+        /**
+         * 分钟分区
+         */
+        MINUTE
     }
 
     public boolean isTimeout(long lastWriteTime) {

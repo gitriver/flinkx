@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -29,13 +29,15 @@ public class StringUtil {
     private StringUtil() {}
 
     public static String join(String[] arr, String delimiter) {
-        if(arr == null || arr.length == 0)
+        if (arr == null || arr.length == 0) {
             return null;
+        }
 
         StringBuffer sb = new StringBuffer();
         for(int i = 0; i < arr.length; ++i) {
-            if(i != 0)
+            if (i != 0) {
                 sb.append(delimiter);
+            }
             sb.append(arr[i]);
         }
 

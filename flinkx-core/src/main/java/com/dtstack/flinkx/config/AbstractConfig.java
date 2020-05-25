@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -42,6 +42,10 @@ public abstract class AbstractConfig implements Serializable {
         } else {
             internalMap = new HashMap<>();
         }
+    }
+
+    public Map<String,Object> getAll(){
+        return internalMap;
     }
 
     public void setVal(String key, Object value) {

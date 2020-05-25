@@ -19,10 +19,13 @@
 package com.dtstack.flinkx.stream.writer;
 
 import com.dtstack.flinkx.config.DataTransferConfig;
-import com.dtstack.flinkx.writer.DataWriter;
+import com.dtstack.flinkx.reader.MetaColumn;
+import com.dtstack.flinkx.writer.BaseDataWriter;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.types.Row;
+
+import java.util.List;
 
 /**
  * This write plugin is used to test the performance of the read plugin, and the plugin directly discards the read data.
@@ -30,12 +33,14 @@ import org.apache.flink.types.Row;
  * @Company: www.dtstack.com
  * @author jiangbo
  */
-public class StreamWriter extends DataWriter {
+public class StreamWriter extends BaseDataWriter {
 
     protected boolean print;
     protected String writeDelimiter;
     protected int batchInterval;
 
+
+    private List<MetaColumn> metaColumns;
 
     public StreamWriter(DataTransferConfig config) {
         super(config);
@@ -43,6 +48,8 @@ public class StreamWriter extends DataWriter {
         writeDelimiter = config.getJob().getContent().get(0).getWriter().getParameter().getStringVal("writeDelimiter", "|");
         batchInterval = config.getJob().getContent().get(0).getWriter().getParameter().getIntVal("batchInterval", 20);
 
+        List column = config.getJob().getContent().get(0).getWriter().getParameter().getColumn();
+        metaColumns = MetaColumn.getMetaColumns(column);
     }
 
     @Override
@@ -52,8 +59,12 @@ public class StreamWriter extends DataWriter {
         builder.setRestoreConfig(restoreConfig);
         builder.setWriteDelimiter(writeDelimiter);
         builder.setMonitorUrls(monitorUrls);
+        builder.setMetaColumn(metaColumns);
+        builder.setDirtyPath(dirtyPath);
+        builder.setDirtyHadoopConfig(dirtyHadoopConfig);
+        builder.setSrcCols(srcCols);
         builder.setBatchInterval(batchInterval);
 
-        return createOutput(dataSet, builder.finish(), "streamwriter");
+        return createOutput(dataSet, builder.finish());
     }
 }
