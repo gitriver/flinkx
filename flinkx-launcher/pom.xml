@@ -109,6 +109,11 @@
                                         <include name="${project.name}-${project.version}.jar" />
                                     </fileset>
                                 </copy>
+                                <copy todir="${basedir}/../flinkx-core/target/flinkx/lib/">
+                                    <fileset dir="target/">
+                                        <include name="${project.name}-${project.version}.jar" />
+                                    </fileset>
+                                </copy>
                             </tasks>
                         </configuration>
                     </execution>

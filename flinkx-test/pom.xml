@@ -63,7 +63,7 @@
             <artifactId>flinkx-stream-writer</artifactId>
             <version>1.6</version>
         </dependency>
-
+		<!--  
         <dependency>
             <groupId>com.dtstack.flinkx</groupId>
             <artifactId>flinkx-carbondata-reader</artifactId>
@@ -206,7 +206,7 @@
             <artifactId>flinkx-redis-writer</artifactId>
             <version>1.6</version>
         </dependency>
-
+		-->
         <dependency>
             <groupId>com.dtstack.flinkx</groupId>
             <artifactId>flinkx-rdb-core</artifactId>
@@ -224,7 +224,7 @@
             <artifactId>flinkx-rdb-writer</artifactId>
             <version>1.6</version>
         </dependency>
-             
+        <!--      
         <dependency>
             <groupId>com.dtstack.flinkx</groupId>
             <artifactId>flinkx-gbase-reader</artifactId>
@@ -296,7 +296,6 @@
             <artifactId>flinkx-kudu-writer</artifactId>
             <version>1.6</version>
         </dependency>
+        --> 
     </dependencies>
-
-
 </project>

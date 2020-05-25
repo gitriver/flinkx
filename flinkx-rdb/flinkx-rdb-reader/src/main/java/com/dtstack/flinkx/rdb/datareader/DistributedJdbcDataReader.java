@@ -18,6 +18,14 @@
 
 package com.dtstack.flinkx.rdb.datareader;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.commons.lang.StringUtils;
+import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.types.Row;
+
 import com.dtstack.flinkx.config.DataTransferConfig;
 import com.dtstack.flinkx.config.ReaderConfig;
 import com.dtstack.flinkx.inputformat.RichInputFormat;
@@ -28,13 +36,6 @@ import com.dtstack.flinkx.rdb.type.TypeConverterInterface;
 import com.dtstack.flinkx.rdb.util.DBUtil;
 import com.dtstack.flinkx.reader.DataReader;
 import com.dtstack.flinkx.reader.MetaColumn;
-import org.apache.commons.lang.StringUtils;
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.types.Row;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * The Reader plugin for multiple databases that can be connected via JDBC.
@@ -78,14 +79,15 @@ public class DistributedJdbcDataReader extends DataReader {
         metaColumns = MetaColumn.getMetaColumns(readerConfig.getParameter().getColumn());
         splitKey = readerConfig.getParameter().getStringVal(JdbcConfigKeys.KEY_SPLIK_KEY);
         connectionConfigs = readerConfig.getParameter().getConnection();
-        fetchSize = readerConfig.getParameter().getIntVal(JdbcConfigKeys.KEY_FETCH_SIZE,0);
-        queryTimeOut = readerConfig.getParameter().getIntVal(JdbcConfigKeys.KEY_QUERY_TIME_OUT,0);
+        fetchSize = readerConfig.getParameter().getIntVal(JdbcConfigKeys.KEY_FETCH_SIZE, 0);
+        queryTimeOut = readerConfig.getParameter().getIntVal(JdbcConfigKeys.KEY_QUERY_TIME_OUT, 0);
         pluginName = readerConfig.getName();
     }
 
     @Override
     public DataStream<Row> readData() {
-        DistributedJdbcInputFormatBuilder builder = new DistributedJdbcInputFormatBuilder(databaseInterface.getDatabaseType().name());
+        DistributedJdbcInputFormatBuilder builder
+            = new DistributedJdbcInputFormatBuilder(databaseInterface.getDatabaseType().name());
         builder.setDrivername(databaseInterface.getDriverClass());
         builder.setUsername(username);
         builder.setPassword(password);
@@ -101,15 +103,17 @@ public class DistributedJdbcDataReader extends DataReader {
         builder.setFetchSize(fetchSize == 0 ? databaseInterface.getFetchSize() : fetchSize);
         builder.setQueryTimeOut(queryTimeOut == 0 ? databaseInterface.getQueryTimeout() : queryTimeOut);
 
-        RichInputFormat format =  builder.finish();
+        RichInputFormat format = builder.finish();
         return createInput(format, (databaseInterface.getDatabaseType() + DISTRIBUTED_TAG + "reader").toLowerCase());
     }
 
-    protected List<DataSource> buildConnections(){
+    protected List<DataSource> buildConnections() {
         List<DataSource> sourceList = new ArrayList<>(connectionConfigs.size());
         for (ReaderConfig.ParameterConfig.ConnectionConfig connectionConfig : connectionConfigs) {
-            String curUsername = (StringUtils.isBlank(connectionConfig.getUsername())) ? username : connectionConfig.getUsername();
-            String curPassword = (StringUtils.isBlank(connectionConfig.getPassword())) ? password : connectionConfig.getPassword();
+            String curUsername
+                = (StringUtils.isBlank(connectionConfig.getUsername())) ? username : connectionConfig.getUsername();
+            String curPassword
+                = (StringUtils.isBlank(connectionConfig.getPassword())) ? password : connectionConfig.getPassword();
             String curJdbcUrl = DBUtil.formatJdbcUrl(connectionConfig.getJdbcUrl().get(0), null);
             for (String table : connectionConfig.getTable()) {
                 DataSource source = new DataSource();

@@ -11,6 +11,12 @@
 
     <modules>
         <module>flinkx-core</module>
+		<module>flinkx-rdb</module>
+		<module>flinkx-stream</module>
+		<module>flinkx-examples</module>
+		<module>flinkx-test</module>
+		<module>flinkx-launcher</module>
+		<!--
         <module>flinkx-rdb</module>
         <module>flinkx-es</module>
         <module>flinkx-ftp</module>
@@ -36,6 +42,7 @@
         <module>flinkx-kafka10</module>
         <module>flinkx-kafka11</module>
         <module>flinkx-kudu</module>
+		-->
     </modules>
 
     <properties>

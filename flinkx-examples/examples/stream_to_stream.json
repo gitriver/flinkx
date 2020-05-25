@@ -1,0 +1,52 @@
+{
+  "job": {
+    "content": [
+      {
+        "reader": {
+          "parameter": {
+            "sliceRecordCount": ["5","6","7"],
+            "column": [
+              {
+                "name": "name",
+                "type": "string",
+                "value": "xiangqin"
+              },
+              {
+                "name": "age",
+                "type": "int",
+                "value": "26"
+              },
+              {
+                "name": "father",
+                "type": "string",
+                "value": "yongfang"
+              },
+              {
+                "name": "adress",
+                "type": "string",
+                "value": "zhejiang"
+              }
+            ]
+          },
+          "name": "streamreader"
+        },
+        "writer": {
+          "parameter": {
+            "print":true
+          },
+          "name": "streamwriter"
+        }
+      }
+    ],
+    "setting": {
+            "speed": {
+                 "channel": 3,
+                 "bytes": 100
+            },
+            "errorLimit": {
+                "record": 0,
+                "percentage": 50
+            }
+        }
+  }
+}

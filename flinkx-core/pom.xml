@@ -14,7 +14,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <scala.binary.version>2.10</scala.binary.version>
-        <flink.version>1.8.1</flink.version>
+        <flink.version>1.8.3</flink.version>
         <dev.path>${basedir}/../dev</dev.path>
     </properties>
 
@@ -168,6 +168,29 @@
                                 </includes>
                             </artifactSet>
                         </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>com.dtstack.flinkx.Main</mainClass>
+                        </manifest>
+                    </archive>
+                    <finalName>flinkx</finalName>
+                    <descriptors>
+                        <descriptor>src/main/assembly/package.xml</descriptor>
+                    </descriptors>
+                </configuration>
+
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>

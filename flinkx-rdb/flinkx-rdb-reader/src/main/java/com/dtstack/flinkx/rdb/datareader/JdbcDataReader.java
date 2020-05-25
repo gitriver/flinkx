@@ -18,6 +18,14 @@
 
 package com.dtstack.flinkx.rdb.datareader;
 
+import java.util.List;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.math.NumberUtils;
+import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.types.Row;
+
 import com.dtstack.flinkx.config.DataTransferConfig;
 import com.dtstack.flinkx.config.ReaderConfig;
 import com.dtstack.flinkx.inputformat.RichInputFormat;
@@ -26,13 +34,6 @@ import com.dtstack.flinkx.rdb.inputformat.JdbcInputFormatBuilder;
 import com.dtstack.flinkx.rdb.type.TypeConverterInterface;
 import com.dtstack.flinkx.reader.DataReader;
 import com.dtstack.flinkx.reader.MetaColumn;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.math.NumberUtils;
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.types.Row;
-
-import java.util.List;
 
 /**
  * The Reader plugin for any database that can be connected via JDBC.
@@ -88,11 +89,11 @@ public class JdbcDataReader extends DataReader {
         table = readerConfig.getParameter().getConnection().get(0).getTable().get(0);
         where = readerConfig.getParameter().getStringVal(JdbcConfigKeys.KEY_WHERE);
         metaColumns = MetaColumn.getMetaColumns(readerConfig.getParameter().getColumn());
-        fetchSize = readerConfig.getParameter().getIntVal(JdbcConfigKeys.KEY_FETCH_SIZE,0);
-        queryTimeOut = readerConfig.getParameter().getIntVal(JdbcConfigKeys.KEY_QUERY_TIME_OUT,0);
+        fetchSize = readerConfig.getParameter().getIntVal(JdbcConfigKeys.KEY_FETCH_SIZE, 0);
+        queryTimeOut = readerConfig.getParameter().getIntVal(JdbcConfigKeys.KEY_QUERY_TIME_OUT, 0);
         splitKey = readerConfig.getParameter().getStringVal(JdbcConfigKeys.KEY_SPLIK_KEY);
-        customSql = readerConfig.getParameter().getStringVal(JdbcConfigKeys.KEY_CUSTOM_SQL,null);
-        orderByColumn = readerConfig.getParameter().getStringVal(JdbcConfigKeys.KEY_ORDER_BY_COLUMN,null);
+        customSql = readerConfig.getParameter().getStringVal(JdbcConfigKeys.KEY_CUSTOM_SQL, null);
+        orderByColumn = readerConfig.getParameter().getStringVal(JdbcConfigKeys.KEY_ORDER_BY_COLUMN, null);
 
         buildIncrementConfig(readerConfig);
     }
@@ -122,31 +123,32 @@ public class JdbcDataReader extends DataReader {
         QuerySqlBuilder sqlBuilder = new QuerySqlBuilder(this);
         builder.setQuery(sqlBuilder.buildSql());
 
-        RichInputFormat format =  builder.finish();
+        RichInputFormat format = builder.finish();
         return createInput(format, (databaseInterface.getDatabaseType() + "reader").toLowerCase());
     }
 
-    private void buildIncrementConfig(ReaderConfig readerConfig){
+    private void buildIncrementConfig(ReaderConfig readerConfig) {
         Object incrementColumn = readerConfig.getParameter().getVal(JdbcConfigKeys.KEY_INCRE_COLUMN);
-        String startLocation = readerConfig.getParameter().getStringVal(JdbcConfigKeys.KEY_START_LOCATION,null);
+        String startLocation = readerConfig.getParameter().getStringVal(JdbcConfigKeys.KEY_START_LOCATION, null);
         boolean useMaxFunc = readerConfig.getParameter().getBooleanVal(JdbcConfigKeys.KEY_USE_MAX_FUNC, false);
-        int requestAccumulatorInterval = readerConfig.getParameter().getIntVal(JdbcConfigKeys.KEY_REQUEST_ACCUMULATOR_INTERVAL, 2);
+        int requestAccumulatorInterval
+            = readerConfig.getParameter().getIntVal(JdbcConfigKeys.KEY_REQUEST_ACCUMULATOR_INTERVAL, 2);
 
         incrementConfig = new IncrementConfig();
-        if (incrementColumn != null && StringUtils.isNotEmpty(incrementColumn.toString())){
+        if (incrementColumn != null && StringUtils.isNotEmpty(incrementColumn.toString())) {
             String type = null;
             String name = null;
             int index = -1;
 
             String incrementColStr = String.valueOf(incrementColumn);
-            if(NumberUtils.isNumber(incrementColStr)){
+            if (NumberUtils.isNumber(incrementColStr)) {
                 MetaColumn metaColumn = metaColumns.get(Integer.parseInt(incrementColStr));
                 type = metaColumn.getType();
                 name = metaColumn.getName();
                 index = metaColumn.getIndex();
             } else {
                 for (MetaColumn metaColumn : metaColumns) {
-                    if(metaColumn.getName().equals(incrementColStr)){
+                    if (metaColumn.getName().equals(incrementColStr)) {
                         type = metaColumn.getType();
                         name = metaColumn.getName();
                         index = metaColumn.getIndex();
@@ -163,8 +165,8 @@ public class JdbcDataReader extends DataReader {
             incrementConfig.setColumnIndex(index);
             incrementConfig.setRequestAccumulatorInterval(requestAccumulatorInterval);
 
-            if (type == null || name == null){
-                throw new IllegalArgumentException("There is no " + incrementColStr +" field in the columns");
+            if (type == null || name == null) {
+                throw new IllegalArgumentException("There is no " + incrementColStr + " field in the columns");
             }
         }
     }

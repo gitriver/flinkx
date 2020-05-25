@@ -18,16 +18,17 @@
 
 package com.dtstack.flinkx.stream.reader;
 
-import com.dtstack.flinkx.inputformat.RichInputFormat;
-import com.dtstack.flinkx.reader.MetaColumn;
+import java.io.IOException;
+import java.util.List;
+
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.io.GenericInputSplit;
 import org.apache.flink.core.io.InputSplit;
 import org.apache.flink.types.Row;
 
-import java.io.IOException;
-import java.util.List;
+import com.dtstack.flinkx.inputformat.RichInputFormat;
+import com.dtstack.flinkx.reader.MetaColumn;
 
 /**
  * @Company: www.dtstack.com

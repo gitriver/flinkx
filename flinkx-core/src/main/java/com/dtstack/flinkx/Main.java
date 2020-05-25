@@ -18,16 +18,14 @@
 
 package com.dtstack.flinkx;
 
-import com.dtstack.flink.api.java.MyLocalStreamEnvironment;
-import com.dtstack.flinkx.classloader.ClassLoaderManager;
-import com.dtstack.flinkx.config.DataTransferConfig;
-import com.dtstack.flinkx.constants.ConfigConstrant;
-import com.dtstack.flinkx.options.OptionParser;
-import com.dtstack.flinkx.reader.DataReader;
-import com.dtstack.flinkx.reader.DataReaderFactory;
-import com.dtstack.flinkx.util.ResultPrintUtil;
-import com.dtstack.flinkx.writer.DataWriter;
-import com.dtstack.flinkx.writer.DataWriterFactory;
+import java.lang.reflect.Field;
+import java.net.URL;
+import java.net.URLDecoder;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+import java.util.Set;
+
 import org.apache.commons.io.Charsets;
 import org.apache.commons.lang.StringUtils;
 import org.apache.flink.api.common.JobExecutionResult;
@@ -46,13 +44,16 @@ import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Field;
-import java.net.URL;
-import java.net.URLDecoder;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
-import java.util.*;
+import com.dtstack.flink.api.java.MyLocalStreamEnvironment;
+import com.dtstack.flinkx.classloader.ClassLoaderManager;
+import com.dtstack.flinkx.config.DataTransferConfig;
+import com.dtstack.flinkx.constants.ConfigConstrant;
+import com.dtstack.flinkx.options.OptionParser;
+import com.dtstack.flinkx.reader.DataReader;
+import com.dtstack.flinkx.reader.DataReaderFactory;
+import com.dtstack.flinkx.util.ResultPrintUtil;
+import com.dtstack.flinkx.writer.DataWriter;
+import com.dtstack.flinkx.writer.DataWriterFactory;
 
 /**
  * The main class entry
@@ -76,6 +77,7 @@ public class Main {
         Properties confProperties = parseConf(options.getConfProp());
 
         // 解析jobPath指定的任务配置文件
+
         DataTransferConfig config = DataTransferConfig.parse(job);
 
         if(StringUtils.isNotEmpty(monitor)) {
